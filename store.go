@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/r3labs/sse/v2"
 )
 
@@ -21,7 +22,8 @@ func (m *MachinesStore) Add(n *string) {
 	}()
 	if !exists {
 		*m.Store = append(*m.Store, *n)
-		m.Server.Publish("machine", &sse.Event{Data: []byte(*n)})
+		v, _ := json.Marshal(*m.Store)
+		m.Server.Publish("machine", &sse.Event{Data: v})
 	}
 }
 
