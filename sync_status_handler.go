@@ -24,17 +24,20 @@ func (h *SyncStatusHandler) SyncStatusNotify(w http.ResponseWriter, r *http.Requ
 	machineId := mux.Vars(r)["machine-id"]
 	if machineId == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Machine Id is required"))
+		_, _ = w.Write([]byte("Machine Id is required"))
 		return
 	}
 
-	exists := h.Server.StreamExists(machineId)
-	if !exists {
-		h.Server.CreateStream(machineId)
+	stream := h.Server.CreateStream(machineId)
+	if len(stream.Eventlog) != 0 {
+		event := stream.Eventlog[len(stream.Eventlog)-1]
+		stream.Eventlog = []*sse.Event{event}
 	}
-	h.M.Add(&machineId)
+
+	h.M.Add(machineId)
 
 	b, _ := io.ReadAll(r.Body)
+
 	h.Server.Publish(machineId, &sse.Event{Data: b})
 }
 

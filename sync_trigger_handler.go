@@ -44,7 +44,7 @@ func (s *SyncTriggerHandler) SyncNotify(w http.ResponseWriter, r *http.Request) 
 		s.Server.CreateStream(machineId)
 	}
 
-	s.M.Add(&machineId)
+	s.M.Add(machineId)
 	var event SyncEvent
 	_ = json.NewDecoder(r.Body).Decode(&event)
 

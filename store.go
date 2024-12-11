@@ -1,32 +1,91 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"fmt"
 	"github.com/r3labs/sse/v2"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"os"
 )
 
 type MachinesStore struct {
-	Store  *[]string
+	Store  *mongo.Collection
 	Server *sse.Server
 }
 
-func (m *MachinesStore) Add(n *string) {
-	exists := func() bool {
-		for _, v := range *m.Store {
-			if v == *n {
-				return true
-			}
-		}
+type Machines struct {
+	ID       string   `bson:"_id"`
+	Machines []string `bson:"machines"`
+}
 
-		return false
-	}()
-	if !exists {
-		*m.Store = append(*m.Store, *n)
-		v, _ := json.Marshal(*m.Store)
-		m.Server.Publish("machine", &sse.Event{Data: v})
+func NewStore(Server *sse.Server) MachinesStore {
+	defer fmt.Printf("successfully connected to MongoDB!\n")
+
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	url := os.Getenv("D_MONGO_URL")
+	if url == "" {
+		fmt.Println("D_MONGO_URL environment variable not set")
+		os.Exit(1)
+	}
+
+	//opts := options.Client().ApplyURI("mongodb+srv://unitz007:dFZmjO4G9EgVA6Dt@dotfile-syncer.6s2to.mongodb.net/?retryWrites=true&w=majority&appName=dotfile-syncer").SetServerAPIOptions(serverAPI)
+	opts := options.Client().ApplyURI(url).SetServerAPIOptions(serverAPI)
+	// Create a new client and connect to the server
+	client, err := mongo.Connect(context.TODO(), opts)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	Store := client.Database("dotfile-syncer")
+
+	if err := Store.RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
+		fmt.Println("could not connect to mongodb", err)
+		os.Exit(1)
+	}
+
+	return MachinesStore{
+		Store:  Store.Collection("machines"),
+		Server: Server,
 	}
 }
 
-func (m *MachinesStore) Get() *[]string {
-	return m.Store
+func (m *MachinesStore) Add(n string) {
+
+	filer := bson.M{"_id": "1"}
+	exists := m.Store.FindOne(context.Background(), filer)
+	if exists.Err() != nil {
+		s := Machines{
+			Machines: []string{n},
+			ID:       "1",
+		}
+		m.Store.InsertOne(context.Background(), s)
+	} else {
+		var update Machines
+		exists.Decode(&update)
+
+		isExists := func() bool {
+			for _, m := range update.Machines {
+				return m == n
+			}
+			return false
+		}()
+
+		if !isExists {
+			update.Machines = append(update.Machines, n)
+			m.Store.FindOneAndReplace(context.TODO(), filer, update)
+		}
+	}
+}
+
+func (m *MachinesStore) Get() []string {
+	var response Machines
+	err := m.Store.FindOne(context.Background(), bson.M{"_id": "1"}).Decode(&response)
+	if err != nil {
+		fmt.Println(err)
+		return []string{}
+	}
+	return response.Machines
 }

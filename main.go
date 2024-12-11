@@ -17,14 +17,16 @@ func main() {
 	syncTriggerServer := sse.New()
 	syncStatusServer := sse.New()
 
-	syncStatusServer.EventTTL = time.Second
 	syncTriggerServer.EventTTL = time.Second
 
 	m := mux.NewRouter()
 
-	ms := MachinesStore{
-		Store:  &[]string{},
-		Server: machineServer,
+	ms := NewStore(machineServer)
+
+	// register streams
+	for _, c := range ms.Get() {
+		syncTriggerServer.CreateStream(c)
+		syncStatusServer.CreateStream(c)
 	}
 
 	syncTriggerHandler := SyncTriggerHandler{
@@ -46,6 +48,17 @@ func main() {
 
 	m.Path("/machines").Methods("GET").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		machineServer.ServeHTTP(w, r)
+	})
+
+	m.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		machineId := mux.Vars(r)["machine-id"]
+		syncTriggerServer.CreateStream(machineId)
+		syncStatusServer.CreateStream(machineId)
+
+		ms.Add(machineId)
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	c := cors.Default().Handler(m)
