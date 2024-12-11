@@ -19,6 +19,7 @@ func main() {
 	syncTriggerServer := sse.New()
 	syncStatusServer := sse.New()
 	gitWebHookStreamServer := sse.New()
+	gitWebHookStreamServer.EventTTL = time.Second
 
 	syncTriggerServer.EventTTL = time.Second
 

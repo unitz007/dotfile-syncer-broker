@@ -18,7 +18,6 @@ func (h *GitWebhookHandler) ReceivePushEvent(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			fmt.Println(err)
 		}
-		h.Stream.Eventlog.Clear()
 	}(r.Body)
 
 	b, err := io.ReadAll(r.Body)
