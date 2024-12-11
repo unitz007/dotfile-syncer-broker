@@ -1,6 +1,7 @@
-package main
+package handlers
 
 import (
+	"dotfile-syncer-broker/lib"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -10,8 +11,8 @@ import (
 )
 
 type SyncTriggerHandler struct {
-	server *sse.Server
-	store  MachinesStore
+	Server *sse.Server
+	Store  lib.MachinesStore
 }
 
 type SyncEvent struct {
@@ -39,23 +40,23 @@ func (s *SyncTriggerHandler) SyncNotify(w http.ResponseWriter, r *http.Request) 
 		}
 	}(r.Body)
 
-	exists := s.server.StreamExists(machineId)
+	exists := s.Server.StreamExists(machineId)
 	if !exists {
-		s.server.CreateStream(machineId)
+		s.Server.CreateStream(machineId)
 	}
 
-	s.store.Add(machineId)
+	s.Store.Add(machineId)
 	var event SyncEvent
 	_ = json.NewDecoder(r.Body).Decode(&event)
 
 	a, _ := json.Marshal(event.Data)
-	s.server.Publish(machineId, &sse.Event{Data: a})
+	s.Server.Publish(machineId, &sse.Event{Data: a})
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *SyncTriggerHandler) Status(w http.ResponseWriter, r *http.Request) {
-	s.server.ServeHTTP(w, r)
+	s.Server.ServeHTTP(w, r)
 	go func() {
 		<-r.Context().Done()
 		return

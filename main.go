@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"dotfile-syncer-broker/handlers"
+	"dotfile-syncer-broker/lib"
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/cors"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -18,12 +18,14 @@ func main() {
 
 	syncTriggerServer := sse.New()
 	syncStatusServer := sse.New()
+	gitWebHookStreamServer := sse.New()
+	gitWebHookStreamServer.CreateStream("git-web-hook")
 
 	syncTriggerServer.EventTTL = time.Second
 
 	router := mux.NewRouter()
 
-	store := NewStore()
+	store := lib.NewStore()
 
 	// register machines
 	for _, c := range store.Get() {
@@ -32,13 +34,18 @@ func main() {
 	}
 
 	// handlers
-	syncTriggerHandler := SyncTriggerHandler{
-		server: syncTriggerServer,
-		store:  store,
+	syncTriggerHandler := handlers.SyncTriggerHandler{
+		Server: syncTriggerServer,
+		Store:  store,
 	}
-	syncStatusHandler := SyncStatusHandler{
-		server: syncStatusServer,
-		store:  store,
+	syncStatusHandler := handlers.SyncStatusHandler{
+		Server: syncStatusServer,
+		Store:  store,
+	}
+
+	gitWebHookHandler := handlers.GitWebhookHandler{
+		SseServer: gitWebHookStreamServer,
+		Events:    make(chan string),
 	}
 
 	// sync trigger handlers
@@ -64,11 +71,9 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	router.Methods("POST").Path("/git-hook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		fmt.Println(string(b))
-	})
+	router.Methods("POST").Path("/git-hook").HandlerFunc(gitWebHookHandler.ReceivePushEvent)
+	router.Methods("GET").Path("/git-hook").HandlerFunc(gitWebHookHandler.Listen)
 
 	c := cors.Default().Handler(router)
-	log.Fatal(http.ListenAndServe(":9000", c))
+	log.Fatal(http.ListenAndServe(":8080", c))
 }

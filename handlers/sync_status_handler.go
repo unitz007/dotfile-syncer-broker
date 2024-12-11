@@ -1,6 +1,7 @@
-package main
+package handlers
 
 import (
+	"dotfile-syncer-broker/lib"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
@@ -9,8 +10,8 @@ import (
 )
 
 type SyncStatusHandler struct {
-	server *sse.Server
-	store  MachinesStore
+	Server *sse.Server
+	Store  lib.MachinesStore
 }
 
 func (h *SyncStatusHandler) SyncStatusNotify(w http.ResponseWriter, r *http.Request) {
@@ -28,22 +29,22 @@ func (h *SyncStatusHandler) SyncStatusNotify(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	stream := h.server.CreateStream(machineId)
+	stream := h.Server.CreateStream(machineId)
 	if len(stream.Eventlog) != 0 {
 		event := stream.Eventlog[len(stream.Eventlog)-1]
 		stream.Eventlog = []*sse.Event{event}
 	}
 
-	h.store.Add(machineId)
+	h.Store.Add(machineId)
 
 	b, _ := io.ReadAll(r.Body)
 
-	h.server.Publish(machineId, &sse.Event{Data: b})
+	h.Server.Publish(machineId, &sse.Event{Data: b})
 }
 
 func (h *SyncStatusHandler) SyncStatus(w http.ResponseWriter, r *http.Request) {
 
-	h.server.ServeHTTP(w, r)
+	h.Server.ServeHTTP(w, r)
 	go func() {
 		<-r.Context().Done()
 		return
