@@ -19,7 +19,6 @@ func main() {
 	syncTriggerServer := sse.New()
 	syncStatusServer := sse.New()
 	gitWebHookStreamServer := sse.New()
-	gitWebHookStreamServer.CreateStream("git-web-hook")
 
 	syncTriggerServer.EventTTL = time.Second
 
@@ -45,7 +44,7 @@ func main() {
 
 	gitWebHookHandler := handlers.GitWebhookHandler{
 		SseServer: gitWebHookStreamServer,
-		Events:    make(chan string),
+		Stream:    gitWebHookStreamServer.CreateStream("git-web-hook"),
 	}
 
 	// sync trigger handlers
