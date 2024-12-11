@@ -20,7 +20,7 @@ type Machines struct {
 	Machines []string `bson:"machines"`
 }
 
-func NewStore(Server *sse.Server) MachinesStore {
+func NewStore() MachinesStore {
 	defer fmt.Printf("successfully connected to MongoDB!\n")
 
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)

@@ -21,7 +21,7 @@ func main() {
 
 	router := mux.NewRouter()
 
-	store := NewStore(machineServer)
+	store := NewStore()
 
 	// register machines
 	for _, c := range store.Get() {
