@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/cors"
@@ -62,6 +63,12 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	router.Methods("POST").Path("/git-hook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, h := range r.Header {
+			fmt.Println(h)
+		}
+	})
+
 	c := cors.Default().Handler(router)
-	log.Fatal(http.ListenAndServe(":8080", c))
+	log.Fatal(http.ListenAndServe(":9000", c))
 }
