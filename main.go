@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
 	"github.com/rs/cors"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -64,9 +65,8 @@ func main() {
 	})
 
 	router.Methods("POST").Path("/git-hook").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, h := range r.Header {
-			fmt.Println(h)
-		}
+		b, _ := io.ReadAll(r.Body)
+		fmt.Println(string(b))
 	})
 
 	c := cors.Default().Handler(router)
