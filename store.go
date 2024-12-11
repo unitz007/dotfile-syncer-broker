@@ -11,7 +11,7 @@ import (
 )
 
 type MachinesStore struct {
-	Store  *mongo.Collection
+	store  *mongo.Collection
 	Server *sse.Server
 }
 
@@ -47,21 +47,20 @@ func NewStore(Server *sse.Server) MachinesStore {
 	}
 
 	return MachinesStore{
-		Store:  Store.Collection("machines"),
-		Server: Server,
+		store: Store.Collection("machines"),
 	}
 }
 
 func (m *MachinesStore) Add(n string) {
 
 	filer := bson.M{"_id": "1"}
-	exists := m.Store.FindOne(context.Background(), filer)
+	exists := m.store.FindOne(context.Background(), filer)
 	if exists.Err() != nil {
 		s := Machines{
 			Machines: []string{n},
 			ID:       "1",
 		}
-		m.Store.InsertOne(context.Background(), s)
+		m.store.InsertOne(context.Background(), s)
 	} else {
 		var update Machines
 		exists.Decode(&update)
@@ -75,14 +74,14 @@ func (m *MachinesStore) Add(n string) {
 
 		if !isExists {
 			update.Machines = append(update.Machines, n)
-			m.Store.FindOneAndReplace(context.TODO(), filer, update)
+			m.store.FindOneAndReplace(context.TODO(), filer, update)
 		}
 	}
 }
 
 func (m *MachinesStore) Get() []string {
 	var response Machines
-	err := m.Store.FindOne(context.Background(), bson.M{"_id": "1"}).Decode(&response)
+	err := m.store.FindOne(context.Background(), bson.M{"_id": "1"}).Decode(&response)
 	if err != nil {
 		fmt.Println(err)
 		return []string{}

@@ -19,48 +19,49 @@ func main() {
 
 	syncTriggerServer.EventTTL = time.Second
 
-	m := mux.NewRouter()
+	router := mux.NewRouter()
 
-	ms := NewStore(machineServer)
+	store := NewStore(machineServer)
 
-	// register streams
-	for _, c := range ms.Get() {
+	// register machines
+	for _, c := range store.Get() {
 		syncTriggerServer.CreateStream(c)
 		syncStatusServer.CreateStream(c)
 	}
 
+	// handlers
 	syncTriggerHandler := SyncTriggerHandler{
-		Server: syncTriggerServer,
-		M:      ms,
+		server: syncTriggerServer,
+		store:  store,
 	}
 	syncStatusHandler := SyncStatusHandler{
-		Server: syncStatusServer,
-		M:      ms,
+		server: syncStatusServer,
+		store:  store,
 	}
 
 	// sync trigger handlers
-	m.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
-	m.Methods("GET").Path("/sync-trigger").HandlerFunc(syncTriggerHandler.Status)
+	router.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
+	router.Methods("GET").Path("/sync-trigger").HandlerFunc(syncTriggerHandler.Status)
 
 	// sync trigger handlers
-	m.Methods("POST").Path("/sync-status/{machine-id}/notify").HandlerFunc(syncStatusHandler.SyncStatusNotify)
-	m.Methods("GET").Path("/sync-status").HandlerFunc(syncStatusHandler.SyncStatus)
+	router.Methods("POST").Path("/sync-status/{machine-id}/notify").HandlerFunc(syncStatusHandler.SyncStatusNotify)
+	router.Methods("GET").Path("/sync-status").HandlerFunc(syncStatusHandler.SyncStatus)
 
-	m.Path("/machines").Methods("GET").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/machines").Methods("GET").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		machineServer.ServeHTTP(w, r)
 	})
 
-	m.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	router.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		machineId := mux.Vars(r)["machine-id"]
 		syncTriggerServer.CreateStream(machineId)
 		syncStatusServer.CreateStream(machineId)
 
-		ms.Add(machineId)
+		store.Add(machineId)
 
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	c := cors.Default().Handler(m)
+	c := cors.Default().Handler(router)
 	log.Fatal(http.ListenAndServe(":8080", c))
 }

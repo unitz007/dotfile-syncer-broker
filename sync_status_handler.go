@@ -9,8 +9,8 @@ import (
 )
 
 type SyncStatusHandler struct {
-	Server *sse.Server
-	M      MachinesStore
+	server *sse.Server
+	store  MachinesStore
 }
 
 func (h *SyncStatusHandler) SyncStatusNotify(w http.ResponseWriter, r *http.Request) {
@@ -28,22 +28,22 @@ func (h *SyncStatusHandler) SyncStatusNotify(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	stream := h.Server.CreateStream(machineId)
+	stream := h.server.CreateStream(machineId)
 	if len(stream.Eventlog) != 0 {
 		event := stream.Eventlog[len(stream.Eventlog)-1]
 		stream.Eventlog = []*sse.Event{event}
 	}
 
-	h.M.Add(machineId)
+	h.store.Add(machineId)
 
 	b, _ := io.ReadAll(r.Body)
 
-	h.Server.Publish(machineId, &sse.Event{Data: b})
+	h.server.Publish(machineId, &sse.Event{Data: b})
 }
 
 func (h *SyncStatusHandler) SyncStatus(w http.ResponseWriter, r *http.Request) {
 
-	h.Server.ServeHTTP(w, r)
+	h.server.ServeHTTP(w, r)
 	go func() {
 		<-r.Context().Done()
 		return

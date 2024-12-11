@@ -10,8 +10,8 @@ import (
 )
 
 type SyncTriggerHandler struct {
-	Server *sse.Server
-	M      MachinesStore
+	server *sse.Server
+	store  MachinesStore
 }
 
 type SyncEvent struct {
@@ -39,23 +39,23 @@ func (s *SyncTriggerHandler) SyncNotify(w http.ResponseWriter, r *http.Request) 
 		}
 	}(r.Body)
 
-	exists := s.Server.StreamExists(machineId)
+	exists := s.server.StreamExists(machineId)
 	if !exists {
-		s.Server.CreateStream(machineId)
+		s.server.CreateStream(machineId)
 	}
 
-	s.M.Add(machineId)
+	s.store.Add(machineId)
 	var event SyncEvent
 	_ = json.NewDecoder(r.Body).Decode(&event)
 
 	a, _ := json.Marshal(event.Data)
-	s.Server.Publish(machineId, &sse.Event{Data: a})
+	s.server.Publish(machineId, &sse.Event{Data: a})
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *SyncTriggerHandler) Status(w http.ResponseWriter, r *http.Request) {
-	s.Server.ServeHTTP(w, r)
+	s.server.ServeHTTP(w, r)
 	go func() {
 		<-r.Context().Done()
 		return
