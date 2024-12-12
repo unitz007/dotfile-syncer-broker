@@ -66,10 +66,13 @@ func (m *MachinesStore) Add(n string) {
 		exists.Decode(&update)
 
 		isExists := func() bool {
+			e := false
 			for _, m := range update.Machines {
-				return m == n
+				if m == n {
+					e = true
+				}
 			}
-			return false
+			return e
 		}()
 
 		if !isExists {
