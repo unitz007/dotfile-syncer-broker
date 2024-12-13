@@ -30,7 +30,6 @@ func NewStore() MachinesStore {
 		os.Exit(1)
 	}
 
-	//opts := options.Client().ApplyURI("mongodb+srv://unitz007:dFZmjO4G9EgVA6Dt@dotfile-syncer.6s2to.mongodb.net/?retryWrites=true&w=majority&appName=dotfile-syncer").SetServerAPIOptions(serverAPI)
 	opts := options.Client().ApplyURI(url).SetServerAPIOptions(serverAPI)
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(context.TODO(), opts)
