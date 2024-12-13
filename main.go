@@ -49,13 +49,13 @@ func main() {
 		Stream:    gitHookStream,
 	}
 
-	//go func() {
-	//	// keep alive
-	//	for {
-	//		gitWebHookStreamServer.Publish("git-web-hook", &sse.Event{Data: []byte("{}")})
-	//		time.Sleep(2 * time.Second)
-	//	}
-	//}()
+	go func() {
+		// keep alive
+		for {
+			gitWebHookStreamServer.Publish("git-web-hook", &sse.Event{Data: []byte("{}")})
+			time.Sleep(2 * time.Second)
+		}
+	}()
 
 	// sync trigger handlers
 	router.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
