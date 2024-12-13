@@ -33,6 +33,5 @@ func (h *GitWebhookHandler) ReceivePushEvent(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *GitWebhookHandler) Listen(w http.ResponseWriter, r *http.Request) {
-
 	h.SseServer.ServeHTTP(w, r)
 }

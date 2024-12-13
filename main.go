@@ -43,10 +43,19 @@ func main() {
 		Store:  store,
 	}
 
+	gitHookStream := gitWebHookStreamServer.CreateStream("git-web-hook")
 	gitWebHookHandler := handlers.GitWebhookHandler{
 		SseServer: gitWebHookStreamServer,
-		Stream:    gitWebHookStreamServer.CreateStream("git-web-hook"),
+		Stream:    gitHookStream,
 	}
+
+	go func() {
+		// keep alive
+		for {
+			gitWebHookStreamServer.Publish("git-web-hook", &sse.Event{Data: []byte("{}")})
+			time.Sleep(2 * time.Second)
+		}
+	}()
 
 	// sync trigger handlers
 	router.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
