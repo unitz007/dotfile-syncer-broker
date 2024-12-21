@@ -3,12 +3,13 @@ package main
 import (
 	"dotfile-syncer-broker/handlers"
 	"dotfile-syncer-broker/lib"
-	"github.com/gorilla/mux"
-	"github.com/r3labs/sse/v2"
-	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/r3labs/sse/v2"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -43,10 +44,16 @@ func main() {
 		Store:  store,
 	}
 
-	gitHookStream := gitWebHookStreamServer.CreateStream("git-web-hook")
+	machineHandler := handlers.MachineHandler{
+		Store:             store,
+		MachineServer:     machineServer,
+		SyncTriggerServer: syncTriggerServer,
+		SyncStatusServer:  syncStatusServer,
+	}
+
+	gitWebHookStreamServer.CreateStream("git-web-hook")
 	gitWebHookHandler := handlers.GitWebhookHandler{
 		SseServer: gitWebHookStreamServer,
-		Stream:    gitHookStream,
 	}
 
 	go func() {
@@ -57,29 +64,13 @@ func main() {
 		}
 	}()
 
-	// sync trigger handlers
+	// sync handlers
 	router.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
 	router.Methods("GET").Path("/sync-trigger").HandlerFunc(syncTriggerHandler.Status)
-
-	// sync trigger handlers
 	router.Methods("POST").Path("/sync-status/{machine-id}/notify").HandlerFunc(syncStatusHandler.SyncStatusNotify)
 	router.Methods("GET").Path("/sync-status").HandlerFunc(syncStatusHandler.SyncStatus)
-
-	router.Path("/machines").Methods("GET").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		machineServer.ServeHTTP(w, r)
-	})
-
-	router.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		machineId := mux.Vars(r)["machine-id"]
-		syncTriggerServer.CreateStream(machineId)
-		syncStatusServer.CreateStream(machineId)
-
-		store.Add(machineId)
-
-		w.WriteHeader(http.StatusNoContent)
-	})
-
+	router.Path("/machines").Methods("GET").HandlerFunc(machineHandler.GetMachines)
+	router.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(machineHandler.AddMachine)
 	router.Methods("POST").Path("/git-hook").HandlerFunc(gitWebHookHandler.ReceivePushEvent)
 	router.Methods("GET").Path("/git-hook").HandlerFunc(gitWebHookHandler.Listen)
 

@@ -5,11 +5,11 @@ import (
 	"github.com/r3labs/sse/v2"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type GitWebhookHandler struct {
 	SseServer *sse.Server
-	Stream    *sse.Stream
 }
 
 func (h *GitWebhookHandler) ReceivePushEvent(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,8 @@ func (h *GitWebhookHandler) ReceivePushEvent(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	h.SseServer.Publish("git-web-hook", &sse.Event{Data: b})
+	var c = strings.ReplaceAll(string(b), "\n", "")
+	h.SseServer.Publish("git-web-hook", &sse.Event{Data: []byte(c)})
 
 	w.WriteHeader(http.StatusOK)
 }
