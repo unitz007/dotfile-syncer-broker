@@ -60,7 +60,7 @@ func main() {
 		// keep alive
 		for {
 			gitWebHookStreamServer.Publish("git-web-hook", &sse.Event{Data: []byte("{}")})
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 
