@@ -1,79 +1,46 @@
 package main
 
 import (
-	"dotfile-syncer-broker/handlers"
-	"dotfile-syncer-broker/lib"
-	"log"
-	"net/http"
-	"time"
-
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
-	"github.com/rs/cors"
+	"log"
+	"net/http"
+)
+
+const (
+	MachinePath = "/machines"
 )
 
 func main() {
 
-	machineServer := sse.New()
-	machineServer.CreateStream("machine")
-
-	syncTriggerServer := sse.New()
-	syncStatusServer := sse.New()
-	gitWebHookStreamServer := sse.New()
-	gitWebHookStreamServer.EventTTL = time.Second
-
-	syncTriggerServer.EventTTL = time.Second
-
 	router := mux.NewRouter()
+	handler := NewHandler(
+		NewStore(),
+		sse.New(),
+		sse.New(),
+		sse.New(),
+		sse.New(),
+	)
 
-	store := lib.NewStore()
+	router.Methods(http.MethodGet, http.MethodPost).Path(MachinePath).HandlerFunc(handler.MachineHandler)
+	router.Methods(http.MethodGet).Path(MachinePath + "/{id}").HandlerFunc(handler.MachineHandler)
+	router.Methods(http.MethodGet, http.MethodPost).Path(MachinePath + "/{id}/sync-event").HandlerFunc(handler.SyncEventHandler)
+	router.Methods(http.MethodGet, http.MethodPost).Path(MachinePath + "/{id}/sync-status").HandlerFunc(handler.SyncStatusHandler)
+	router.Methods(http.MethodGet, http.MethodPost).Path("/git-hook").HandlerFunc(handler.WebHookHandler)
 
-	// register machines
-	for _, c := range store.Get() {
-		syncTriggerServer.CreateStream(c)
-		syncStatusServer.CreateStream(c)
-	}
-
-	// handlers
-	syncTriggerHandler := handlers.SyncTriggerHandler{
-		Server: syncTriggerServer,
-		Store:  store,
-	}
-	syncStatusHandler := handlers.SyncStatusHandler{
-		Server: syncStatusServer,
-		Store:  store,
-	}
-
-	machineHandler := handlers.MachineHandler{
-		Store:             store,
-		MachineServer:     machineServer,
-		SyncTriggerServer: syncTriggerServer,
-		SyncStatusServer:  syncStatusServer,
-	}
-
-	gitWebHookStreamServer.CreateStream("git-web-hook")
-	gitWebHookHandler := handlers.GitWebhookHandler{
-		SseServer: gitWebHookStreamServer,
-	}
+	mux.CORSMethodMiddleware(router)
 
 	go func() {
-		// keep alive
-		for {
-			gitWebHookStreamServer.Publish("git-web-hook", &sse.Event{Data: []byte("{}")})
-			time.Sleep(5 * time.Second)
-		}
+		_ = router.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+			s, _ := route.GetPathTemplate()
+			methods, _ := route.GetMethods()
+			fmt.Printf("==> %s %v\n", s, methods)
+			return nil
+		})
 	}()
 
-	// sync handlers
-	router.Methods("POST").Path("/sync-trigger/{machine-id}/notify").HandlerFunc(syncTriggerHandler.SyncNotify)
-	router.Methods("GET").Path("/sync-trigger").HandlerFunc(syncTriggerHandler.Status)
-	router.Methods("POST").Path("/sync-status/{machine-id}/notify").HandlerFunc(syncStatusHandler.SyncStatusNotify)
-	router.Methods("GET").Path("/sync-status").HandlerFunc(syncStatusHandler.SyncStatus)
-	router.Path("/machines").Methods("GET").HandlerFunc(machineHandler.GetMachines)
-	router.Path("/machines/{machine-id}").Methods("POST").HandlerFunc(machineHandler.AddMachine)
-	router.Methods("POST").Path("/git-hook").HandlerFunc(gitWebHookHandler.ReceivePushEvent)
-	router.Methods("GET").Path("/git-hook").HandlerFunc(gitWebHookHandler.Listen)
+	fmt.Println("Listening on port 8080")
 
-	c := cors.Default().Handler(router)
-	log.Fatal(http.ListenAndServe(":8080", c))
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
